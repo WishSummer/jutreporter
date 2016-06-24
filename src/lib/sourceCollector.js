@@ -1,14 +1,10 @@
 import _ from 'lodash';
 import fsp from 'fs-promise';
 import bluebird from 'bluebird';
+import * as utils from './utils';
 const xml2js = bluebird.promisifyAll(require('xml2js'));
 
 export default class SourceCollector {
-
-  static getNameFromFQN(FQN) {
-    const seg = FQN.split('.');
-    return seg[seg.length - 1];
-  }
 
   constructor() {
     this.classes = {};
@@ -22,6 +18,7 @@ export default class SourceCollector {
       return _(javaClassOrMethodObj.tag)
         .map(tag => tag.$)
         .keyBy('name')
+        .mapValues('text')
         .value();
     }
   }
@@ -67,10 +64,10 @@ export default class SourceCollector {
   }
 
   extractTypeDetail(javaTypeObj) {
-    let type = SourceCollector.getNameFromFQN(javaTypeObj.$.qualified);
+    let type = utils.getNameFromFQN(javaTypeObj.$.qualified);
     if (javaTypeObj.generic !== undefined) {
       type += '<';
-      type += SourceCollector.getNameFromFQN(javaTypeObj.generic[0].$.qualified);
+      type += utils.getNameFromFQN(javaTypeObj.generic[0].$.qualified);
       type += '>';
     }
     return type;

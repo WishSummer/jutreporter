@@ -29,7 +29,7 @@ const testReporter = new TestReporter(sourceCollector, testCollector, argv.verbo
 
 // Main
 async function main () {
-  /*console.log(chalk.green('[+] 正在清理测试环境...'));
+  console.log(chalk.green('[+] 正在清理测试环境...'));
   await spawnMaven('clean');
 
   console.log(chalk.green('[+] 正在分析源代码...'));
@@ -45,8 +45,9 @@ async function main () {
   await testCollector.collectAsync(path.join(projectRoot, 'target/surefire-reports/*.xml'));
 
   console.log(chalk.green('[+] 正在生成测试报告...'));
-  */
   await testReporter.generate('/Users/summer/uwrite/test_report');
+
+  console.log(chalk.green('[+] 完毕!'));
 }
 
 async function spawnMaven(...params) {

@@ -129,7 +129,7 @@ export default class TestReporter {
             passed: testCase.passed,
             time: testCase.time,
           };
-        }).filter().value(),
+        }).filter().sortBy('id').value(),
         passed: suite.passed,
       };
     })
@@ -167,7 +167,7 @@ export default class TestReporter {
             passed: testCase.passed,
             time: testCase.time,
           };
-        }).filter().value(),
+        }).filter().sortBy('id').value(),
         passed: suite.passed,
       };
     })

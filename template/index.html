@@ -93,7 +93,8 @@
             </tr>
             {% for bug in case.bugzilla %}
             <tr>
-              <td>&nbsp;</td><td colspan="5"><i class="fa fa-angle-double-right" aria-hidden="true"></i> <a href="{{ bug.url }}" target="_blank">Bugzilla #{{ bug.id }} {{ bug.summary }}</a>: <span class="badge bg-{{ BUGZILLA_STATUS_MAP[bug.status] }}">{{ bug.status }}</span> @ {{ bug.last_change_time }}</td>
+              <td><i class="fa fa-angle-double-right" aria-hidden="true"></i> <span class="badge bg-{{ BUGZILLA_STATUS_MAP[bug.status] }}">{{ bug.status }}</span> <a href="{{ bug.url }}" target="_blank">Bugzilla #{{ bug.id }}</a></td>
+              <td colspan="5">{{ bug.summary }}</td>
             </tr>
             {% endfor %}
             {% endfor %}
@@ -169,7 +170,8 @@
             </tr>
             {% for bug in case.bugzilla %}
             <tr>
-              <td>&nbsp;</td><td colspan="5"><i class="fa fa-angle-double-right" aria-hidden="true"></i> <a href="{{ bug.url }}" target="_blank">Bugzilla #{{ bug.id }} {{ bug.summary }}</a>: <span class="badge bg-{{ BUGZILLA_STATUS_MAP[bug.status] }}">{{ bug.status }}</span> @ {{ bug.last_change_time }}</td>
+              <td><i class="fa fa-angle-double-right" aria-hidden="true"></i> <span class="badge bg-{{ BUGZILLA_STATUS_MAP[bug.status] }}">{{ bug.status }}</span> <a href="{{ bug.url }}" target="_blank">Bugzilla #{{ bug.id }}</a></td>
+              <td colspan="5">{{ bug.summary }}</td>
             </tr>
             {% endfor %}
             {% endfor %}

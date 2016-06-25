@@ -8,7 +8,9 @@ import dateFilter from 'nunjucks-date-filter-local';
 
 export default class TestReporter {
 
-  constructor(sourceCollector, testCollector, verbose) {
+  constructor(bugzillaCollector, sourceXref, sourceCollector, testCollector, verbose) {
+    this.bugzillaCollector = bugzillaCollector;
+    this.sourceXref = sourceXref;
     this.sourceCollector = sourceCollector;
     this.testCollector = testCollector;
     this.isVerbose = verbose;
@@ -21,7 +23,7 @@ export default class TestReporter {
   }
 
   async prepare(destDirectory) {
-    this.log(`[-] Copying asset files to ${destDirectory}`);
+    this.log(`[-] 正在复制文件 ${destDirectory}`);
     await fsp.ensureDir(destDirectory);
     const filesInAssetsDir = await glob('./template/*');
     for (let file of filesInAssetsDir) {
@@ -47,7 +49,7 @@ export default class TestReporter {
     await fsp.writeFile(destFile, html);
   }
 
-  getStat(suites) {
+  statForUnitTestSuites(suites) {
     const statTestCases = {
       passed: 0,
       failed: 0,
@@ -74,43 +76,126 @@ export default class TestReporter {
     };
   }
 
-  async generate(destDirectory) {
-    await this.prepare(destDirectory);
-    console.log(`[-] Analyzing test report...`);
-    const suites = this.testCollector.getSuites().map(suite => {
-      console.log(`[-] ${suite.FQN}`);
+  statForIntegrationTestSuites(suites) {
+    return {
+      ...this.statForUnitTestSuites(suites),
+    };
+  }
+
+  getBugzillaStatus(idList) {
+    const ret = _(idList)
+      .map(id => this.bugzillaCollector.getBug(id))
+      .filter()
+      .value();
+    return ret;
+  }
+
+  generateForUnitTest() {
+    this.log(`[-] 正在分析单元测试情况...`);
+    const suites = _(this.testCollector.getSuites())
+    .filter(suite => {
+      const javaClass = this.sourceCollector.getClass(suite.FQN);
+      return javaClass.tags['@testType'] === 'UNIT_TEST';
+    })
+    .map(suite => {
+      this.log(`[-] ${suite.FQN}`);
       return {
         name: utils.getNameFromFQN(suite.FQN),
         FQN: suite.FQN,
-        cases: suite.cases.map(testCase => {
+        cases: _(suite.cases).map(testCase => {
           console.log(`[-] ${testCase.FQN}`);
           const testMethod = this.sourceCollector.getMethod(testCase.FQN);
           if (testMethod === undefined) {
-            throw new Error(`Unable to find meta info for test method ${testCase.FQN}`);
+            console.error(`[ERROR] Unable to find meta info for test method ${testCase.FQN}`);
+            return null;
           }
+
           const tags = testMethod.tags;
           const targetFQN = `${utils.getPackageFromFQN(testMethod.parentClassFQN)}.${tags['@unitTestTarget']}`;
           const targetMethod = this.sourceCollector.getMethod(targetFQN);
           if (targetMethod === undefined) {
-            throw new Error(`Unable to find meta info for test target method ${targetFQN}`);
+            console.error(`[ERROR] Unable to find meta info for test target method ${targetFQN}`);
+            return null;
           }
 
           return {
             id: tags['@unitTestId'],
+            bugzilla: tags['@bugzillaRef'] ? this.getBugzillaStatus(tags['@bugzillaRef'].split(',').map(s => s.trim())) : [],
+            url: this.sourceXref.getXrefForMethod(testCase.FQN, true).url,
             type: tags['@unitTestType'],
             description: tags['@unitTestDescription'],
             signature: targetMethod.signature,
+            targetUrl: this.sourceXref.getXrefForMethod(targetFQN, false).url,
             passed: testCase.passed,
             time: testCase.time,
           };
-        }),
+        }).filter().value(),
         passed: suite.passed,
       };
-    });
+    })
+    .filter().value();
+    return suites;
+  }
+
+  generateForIntegrationTest() {
+    this.log(`[-] 正在分析集成测试情况...`);
+    const suites = _(this.testCollector.getSuites())
+    .filter(suite => {
+      const javaClass = this.sourceCollector.getClass(suite.FQN);
+      return javaClass.tags['@testType'] === 'INTEGRATION_TEST';
+    })
+    .map(suite => {
+      this.log(`[-] ${suite.FQN}`);
+      return {
+        name: utils.getNameFromFQN(suite.FQN),
+        FQN: suite.FQN,
+        cases: _(suite.cases).map(testCase => {
+          console.log(`[-] ${testCase.FQN}`);
+          const testMethod = this.sourceCollector.getMethod(testCase.FQN);
+          if (testMethod === undefined) {
+            console.error(`[ERROR] Unable to find meta info for test method ${testCase.FQN}`);
+            return null;
+          }
+          const tags = testMethod.tags;
+          return {
+            id: tags['@integrationTestId'],
+            bugzilla: tags['@bugzillaRef'] ? this.getBugzillaStatus(tags['@bugzillaRef'].split(',').map(s => s.trim())) : [],
+            url: this.sourceXref.getXrefForMethod(testCase.FQN, true).url,
+            type: tags['@integrationTestType'],
+            description: tags['@integrationTestDescription'],
+            target: tags['@integrationTestTarget'],
+            passed: testCase.passed,
+            time: testCase.time,
+          };
+        }).filter().value(),
+        passed: suite.passed,
+      };
+    })
+    .filter().value();
+    return suites;
+  }
+
+  async generate(destDirectory) {
+    await this.prepare(destDirectory);
+    const unitTestSuite = this.generateForUnitTest();
+    const integrationTestSuite = this.generateForIntegrationTest();
     const report = {
       generateAt: new Date(),
-      suites,
-      stat: this.getStat(suites),
+      unitTest: {
+        suites: unitTestSuite,
+        stat: this.statForUnitTestSuites(unitTestSuite),
+      },
+      integrationTest: {
+        suites: integrationTestSuite,
+        stat: this.statForIntegrationTestSuites(integrationTestSuite),
+      },
+      BUGZILLA_STATUS_MAP: {
+        'UNCONFIRMED': 'gray',
+        'CONFIRMED': 'red',
+        'IN_PROGRESS': 'yellow',
+        'RESOLVED': 'green',
+        'VERIFIED': 'yellow',
+      },
     };
     const destFile = path.join(destDirectory, 'index.html');
     await this.generateTemplate(report, destFile);

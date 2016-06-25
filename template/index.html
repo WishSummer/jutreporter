@@ -10,15 +10,19 @@
   <link rel="stylesheet" href="bower_components/AdminLTE/dist/css/AdminLTE.min.css">
   <link rel="stylesheet" href="bower_components/AdminLTE/dist/css/skins/skin-blue.min.css">
 </head>
-<body class="hold-transition skin-blue sidebar-mini">
+<body class="hold-transition skin-blue sidebar-mini fixed">
 <div class="wrapper">
   <aside class="main-sidebar" style="padding-top:0">
     <section class="sidebar">
       <ul class="sidebar-menu">
-        <li class="header">测试小结</li>
-        <li><a href="#summary"><i class="fa fa-circle-o text-teal"></i> <span>测试情况</span></a></li>
-        <li class="header">测试样例</li>
-        {% for suite in suites %}
+        <li class="header">单元测试</li>
+        <li><a href="#unittest_summary"><i class="fa fa-circle-o text-teal"></i> <span>测试情况</span></a></li>
+        {% for suite in unitTest.suites %}
+        <li><a href="#{{ suite.name }}"><i class="fa fa-circle-o {% if suite.passed %}text-green{% else %}text-red{% endif %}"></i> <span>{{ suite.name }}</span></a></li>
+        {% endfor %}
+        <li class="header">集成测试</li>
+        <li><a href="#integrationtest_summary"><i class="fa fa-circle-o text-teal"></i> <span>测试情况</span></a></li>
+        {% for suite in integrationTest.suites %}
         <li><a href="#{{ suite.name }}"><i class="fa fa-circle-o {% if suite.passed %}text-green{% else %}text-red{% endif %}"></i> <span>{{ suite.name }}</span></a></li>
         {% endfor %}
       </ul>
@@ -26,8 +30,8 @@
   </aside>
   <div class="content-wrapper">
     <section class="content-header">
-      <h1>
-        测试报告
+      <h1 id="unittest_summary">
+        单元测试报告
         <small>生成时间：{{ generateAt|date('YYYY-MM-DD HH:mm:ss') }}</small>
       </h1>
     </section>
@@ -36,13 +40,12 @@
       <section class="content">
       <div class="row">
         <div class="col-md-6">
-          <a id="summary"></a>
           <div class="box box-primary">
             <div class="box-header with-border">
               <h3 class="box-title">测试通过情况</h3>
             </div>
             <div class="box-body">
-              <div id="chartPassRate" style="height:250px"></div>
+              <div id="chartUPassRate" style="height:250px"></div>
             </div>
           </div>
         </div>
@@ -52,13 +55,13 @@
               <h3 class="box-title">测试类型</h3>
             </div>
             <div class="box-body">
-              <div id="chartTestType" style="height:250px"></div>
+              <div id="chartUTestType" style="height:250px"></div>
             </div>
           </div>
         </div>
       </div>
 
-      {% for suite in suites %}
+      {% for suite in unitTest.suites %}
       <div class="box {% if suite.passed %}box-success{% else %}box-danger{% endif %} box-solid">
         <div class="box-header">
           <h3 class="box-title" id="{{ suite.name }}">{{ suite.FQN }}</h3>
@@ -66,17 +69,17 @@
         <div class="box-body no-padding">
           <table class="table table-striped">
             <tbody><tr>
-              <th>ID</th>
+              <th style="width:280px">ID</th>
               <th>被测函数</th>
-              <th>类型</th>
+              <th style="width:100px">类型</th>
               <th>描述</th>
-              <th>所用时间</th>
-              <th>状态</th>
+              <th style="width:75px">耗时</th>
+              <th style="width:70px">状态</th>
             </tr>
             {% for case in suite.cases %}
             <tr>
-              <td>{{ case.id }}</td>
-              <td>{{ case.signature }}</td>
+              <td><a href="{{ case.url }}" target="_blank">{{ case.id }}</a></td>
+              <td><a href="{{ case.targetUrl }}" target="_blank">{{ case.signature }}</a></td>
               <td>{{ case.type }}</td>
               <td>{{ case.description }}</td>
               <td>{{ case.time }} 秒</td>
@@ -88,12 +91,95 @@
                 {% endif %}
               </td>
             </tr>
+            {% for bug in case.bugzilla %}
+            <tr>
+              <td>&nbsp;</td><td colspan="5"><i class="fa fa-angle-double-right" aria-hidden="true"></i> <a href="{{ bug.url }}" target="_blank">Bugzilla #{{ bug.id }} {{ bug.summary }}</a>: <span class="badge bg-{{ BUGZILLA_STATUS_MAP[bug.status] }}">{{ bug.status }}</span> @ {{ bug.last_change_time }}</td>
+            </tr>
+            {% endfor %}
             {% endfor %}
           </tbody></table>
         </div>
       </div>
       {% endfor %}
     </section>
+
+
+
+    <section class="content-header">
+      <h1 id="integrationtest_summary">
+        集成测试报告
+        <small>生成时间：{{ generateAt|date('YYYY-MM-DD HH:mm:ss') }}</small>
+      </h1>
+    </section>
+    <section class="content">
+
+      <section class="content">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="box box-primary">
+            <div class="box-header with-border">
+              <h3 class="box-title">测试通过情况</h3>
+            </div>
+            <div class="box-body">
+              <div id="chartIPassRate" style="height:250px"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="box box-primary">
+            <div class="box-header with-border">
+              <h3 class="box-title">测试类型</h3>
+            </div>
+            <div class="box-body">
+              <div id="chartITestType" style="height:250px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% for suite in integrationTest.suites %}
+      <div class="box {% if suite.passed %}box-success{% else %}box-danger{% endif %} box-solid">
+        <div class="box-header">
+          <h3 class="box-title" id="{{ suite.name }}">{{ suite.FQN }}</h3>
+        </div>
+        <div class="box-body no-padding">
+          <table class="table table-striped">
+            <tbody><tr>
+              <th style="width:280px">ID</th>
+              <th>所测接口</th>
+              <th style="width:100px">类型</th>
+              <th>描述</th>
+              <th style="width:75px">耗时</th>
+              <th style="width:70px">状态</th>
+            </tr>
+            {% for case in suite.cases %}
+            <tr>
+              <td><a href="{{ case.url }}" target="_blank">{{ case.id }}</a></td>
+              <td>{{ case.target }}</td>
+              <td>{{ case.type }}</td>
+              <td>{{ case.description }}</td>
+              <td>{{ case.time }} 秒</td>
+              <td>
+                {% if case.passed %}
+                  <span class="label label-success">通过</span>
+                {% else %}
+                  <span class="label label-danger">失败</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% for bug in case.bugzilla %}
+            <tr>
+              <td>&nbsp;</td><td colspan="5"><i class="fa fa-angle-double-right" aria-hidden="true"></i> <a href="{{ bug.url }}" target="_blank">Bugzilla #{{ bug.id }} {{ bug.summary }}</a>: <span class="badge bg-{{ BUGZILLA_STATUS_MAP[bug.status] }}">{{ bug.status }}</span> @ {{ bug.last_change_time }}</td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+          </tbody></table>
+        </div>
+      </div>
+      {% endfor %}
+    </section>
+
+
   </div>
 </div>
 
@@ -105,7 +191,7 @@
 <script src="bower_components/highcharts/highcharts-3d.js"></script>
 
 <script>
-$('#chartPassRate').highcharts({
+$('#chartUPassRate').highcharts({
     chart: {
         type: 'pie',
         options3d: {
@@ -126,11 +212,12 @@ $('#chartPassRate').highcharts({
         }
     },
     series: [{
-        data: {{ stat.testcases|toPairs|json|safe }}
+        name: '数量',
+        data: {{ unitTest.stat.testcases|toPairs|json|safe }}
     }]
 });
 
-$('#chartTestType').highcharts({
+$('#chartUTestType').highcharts({
     chart: {
         type: 'pie',
         options3d: {
@@ -150,10 +237,61 @@ $('#chartTestType').highcharts({
         }
     },
     series: [{
-        data: {{ stat.types|toPairs|json|safe }}
+        name: '数量',
+        data: {{ unitTest.stat.types|toPairs|json|safe }}
     }]
 });
 
+$('#chartIPassRate').highcharts({
+    chart: {
+        type: 'pie',
+        options3d: {
+            enabled: true,
+            alpha: 45
+        }
+    },
+    colors: ['#59D696', '#FF635A'],
+    title: {
+        text: ''
+    },
+    credits: {
+        enabled: false,
+    },
+    plotOptions: {
+        pie: {
+            depth: 45
+        }
+    },
+    series: [{
+        name: '数量',
+        data: {{ integrationTest.stat.testcases|toPairs|json|safe }}
+    }]
+});
+
+$('#chartITestType').highcharts({
+    chart: {
+        type: 'pie',
+        options3d: {
+            enabled: true,
+            alpha: 45
+        }
+    },
+    title: {
+        text: ''
+    },
+    credits: {
+        enabled: false,
+    },
+    plotOptions: {
+        pie: {
+            depth: 45
+        }
+    },
+    series: [{
+        name: '数量',
+        data: {{ integrationTest.stat.types|toPairs|json|safe }}
+    }]
+});
 </script>
 
 </body>
